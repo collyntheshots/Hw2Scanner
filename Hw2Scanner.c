@@ -24,7 +24,8 @@ void printIn(char in[])
 		fprintf(stderr, "error opening file in printIn");
 		return;
 	}
-
+	
+	// Prints the contents of the file
 	while((c = fgetc(fp)) != EOF)
 		printf("%c", c);
 
