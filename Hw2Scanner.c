@@ -7,17 +7,19 @@
 #include <stdio.h>
 #include <ctype.h>
 #include <string.h>
+#include <stdlib.h>
 
 /*
 ==============================================================================
-Possible executions:
-1) store token type, meaning tokenize only get called to tokenize the lexeme when reading the file and then can be printed later on
-2) dont store token type, meaning tokenize will have to be called every time we need to print the token type
+This program uses a struct to build the lex table, it is called lexTable and has the lexeme held in a char array lex, the token type held in an int tokType, and an error flag to indicate which error causes held in an int err
 ==============================================================================
-
-IDK where i stand, i need to think more on it -collyn
-
 */
+
+struct lexTable{
+	char lex[100];
+	int tokType;
+	int err;
+};
 
 typedef enum {
 nulsym = 1, identsym, numbersym, plussym, minussym,
@@ -40,6 +42,7 @@ void printIn(char *fName)
 		return;
 	}
 
+	printf("Source Program:\n");
 	// Prints the contents of the file
 	while((c = fgetc(fp)) != EOF)
 		printf("%c", c);
@@ -47,7 +50,40 @@ void printIn(char *fName)
 	fclose(fp);
 }
 
-void printLexTable(char *lex, int token)
+// Prints the Lexeme Table with the proper spacing
+void printTable(struct lexTable token[], int len)
+{
+	int i;
+	printf("Lexeme Table:\n");
+	printf("lexeme\ttoken type\n");
+	for (i = 0; i <= len; i++)
+		printf("%s\t%d\n", token[i].lex, token[i].tokType);
+}
+
+// Prints the Lexeme List with the proper spacing
+// ****************************************************************
+// needs to implement ascii convertion
+void printList(struct lexTable token[], int len)
+{
+	int i;
+	char buff[100];
+	printf("Lexeme List:\n");
+	for (i = 0; i <= len; i++)
+	{
+		printf("%d ", token[i].tokType);
+		if (token[i].tokType == numbersym)
+		{
+			//itoa(token[i].lex, buff, 10);
+			//printf("%s ", buff);
+			printf("%s ", token[i].lex);
+		}
+		else if (token[i].tokType == identsym)
+		{
+			printf("%s ", token[i].lex);
+		}
+	}
+	printf("\n");
+}
 
 int tokenize(char *input)
 {
@@ -67,7 +103,7 @@ int tokenize(char *input)
 		return slashsym;
 	else if (!strcmp(input, "odd"))
 		return oddsym;
-	else if (!strcmp(input, "="))
+	else if (!strcmp(input, ":="))
 		return eqsym;
 	else if (!strcmp(input, "!="))
 		return neqsym;
@@ -121,54 +157,65 @@ int tokenize(char *input)
 		return identsym;
 }
 
-// Processes the file passed through fName
-void procFile(char *fName)
+// Processes the file passed through as fName
+int procFile(char *fName, struct lexTable token[])
 {
 	FILE *fp = fopen(fName, "r");
-	int c = 0;
+
 	char buff[1000];
-	//needs to be "global", lexeme and lexList
-	char *lexeme[1000];
-	int lexList [1000];
+	char buff2[1000];
 	int i = 0;
 	if (fp == NULL)
 	{
 		// Prints to std error when file is not opened properly
 		fprintf(stderr, "error opening file in printIn");
-		return;
+		return -1;
 	}
 
 	// Runs until it finds the end of file
-	while (!feof(fp))
+	for (i = 0; !feof(fp); i++)
 	{
 		fscanf(fp, "%s", buff);
-		lexeme[i] = buff;
-		printf("%s ", lexeme[i]);
-		fflush(stdout);
+		int len = strlen(buff) - 1;
 
-		//This will be dynamic just not yet
-		lexList[i] = tokenize(buff);
+		if (ispunct(buff[len]) && buff[len] != '=')
+		{
+			buff2[0] = buff[len];
+			buff2[1] = '\0';
+			buff[len] = '\0';
+			strcpy(token[i].lex, buff);
+			token[i].tokType = tokenize(buff);
+			i++;
+			strcpy(token[i].lex, buff2);
+			token[i].tokType = tokenize(buff2);
+		}
+		else
+		{
+			strcpy(token[i].lex, buff);
+			token[i].tokType = tokenize(buff);
+		}
 
-		/*
-		**************************************************************
-		Need this, will split the string at any given point:
-		strtok(string, " ")
-		**************************************************************
-		*/
-
-		printf("%d\n", lexList[i]);
-		i++;
+		if (buff2[0] == '.')
+		{
+			fclose(fp);
+			return i;
+		}
 	}
-
-
 	fclose(fp);
+	return i;
 }
 
 int main(int argc, char *argv[])
 {
 	char *fName = argv[1];
+	struct lexTable token[1000];
+	int len;
 	printIn(fName);
-	procFile(fName);
+	printf("\n");
+	len = procFile(fName, token);
+	printTable(token, len);
+	printf("\n");
+	printList(token, len);
 
 	return 0;
 }
