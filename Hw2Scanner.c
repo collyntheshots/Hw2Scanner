@@ -8,6 +8,7 @@
 #include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
+#include <limits.h>
 
 /*
 ==============================================================================
@@ -20,6 +21,10 @@ struct token{
 	int tokType;
 	int err;
 };
+
+typedef enum {
+	noletter = INT_MIN, numtoolong, nametoolong, invalidsymbols
+} err;
 
 typedef enum {
 nulsym = 1, identsym, numbersym, plussym, minussym,
@@ -39,6 +44,7 @@ void printIn(char *fName)
 	{
 		// Prints to std error when file is not opened properly
 		fprintf(stderr, "error opening file in printIn");
+		exit(0);
 		return;
 	}
 
@@ -50,6 +56,18 @@ void printIn(char *fName)
 	fclose(fp);
 }
 
+void printErr(int err)
+{
+	if (err = noletter)
+		printf("Identifier does not start with a letter\n");
+	else if (err = numtoolong)
+		printf("Number is too long\n");
+	else if (err = nametoolong)
+		printf("Name is too long\n");
+	else if (err = invalidsymbols)
+		printf("Invalid symbol\n");
+}
+
 // Prints the Lexeme Table with the proper spacing
 void printTable(struct token tokens[], int len)
 {
@@ -57,7 +75,13 @@ void printTable(struct token tokens[], int len)
 	printf("Lexeme Table:\n");
 	printf("lexeme\ttoken type\n");
 	for (i = 0; i < len; i++)
-		printf("%s\t%d\n", tokens[i].lex, tokens[i].tokType);
+	{
+		printf("%s\t", tokens[i].lex);
+		if (tokens[i].err)
+			printErr(tokens[i].err);
+		else
+			printf("%d\n", tokens[i].tokType);
+	}
 }
 
 // Prints the Lexeme List with the proper spacing
@@ -85,13 +109,21 @@ void printList(struct token tokens[], int len)
 	printf("\n");
 }
 
+int isNumeric (const char * s)
+{
+    if (s == NULL || *s == '\0' || isspace(*s))
+      return 0;
+    char * p;
+    strtod (s, &p);
+    return *p == '\0';
+}
+
 int tokenize(char *input)
 {
-	//printf("tokenize function\n");
-	//fflush(stdout);
-	//if (input == NULL)
-	//	return nulsym;
-	if (isdigit(*input) != 0)
+	int i = 0;
+	if (input == NULL)
+		return nulsym;
+	else if (isNumeric(input))
 		return numbersym;
 	else if (!strcmp(input, "+"))
 		return plussym;
@@ -115,10 +147,10 @@ int tokenize(char *input)
 		return gtrsym;
 	else if (!strcmp(input, ">="))
 		return geqsym;
-	//else if (input == ???)
-	//	return lparentsym;
-	//else if (input == ???)
-	//	return rparentsym;
+	else if (!strcmp(input, "("))
+		return lparentsym;
+	else if (!strcmp(input, ")"))
+		return rparentsym;
 	else if (!strcmp(input, ","))
 		return commasym;
 	else if (!strcmp(input, ";"))
@@ -157,8 +189,25 @@ int tokenize(char *input)
 		return identsym;
 }
 
-int isInValid(char c)
+int isInvalid(char c)
 {
+	return 0;
+}
+
+int checkErr(char *lex, int tType)
+{
+	if (tType == identsym)
+	{
+		if (strlen(lex) >= 12)
+			return nametoolong;
+		else if (isdigit(lex[0]))
+			return noletter;
+	}
+	else if (tType == numbersym)
+	{
+		if (strlen(lex) >= 6)
+			return numtoolong;
+	}
 	return 0;
 }
 
@@ -168,16 +217,14 @@ int procFile(char *fName, struct token tokens[])
 	FILE *fp = fopen(fName, "r");
 
 	char cache[1000];
-	char buff[1000];
-	char buff2[1000];
 	int c, len = 0, i = 0;
 	if (fp == NULL)
 	{
 		// Prints to std error when file is not opened properly
-		fprintf(stderr, "error opening file in printIn");
+		fprintf(stderr, "error opening file in procFile");
+		exit(0);
 		return -1;
 	}
-
 
 	while((c = fgetc(fp)) != EOF)
 	{
@@ -187,7 +234,26 @@ int procFile(char *fName, struct token tokens[])
 		{
 			continue;
 		}
-		else if (isInValid(cache[i]))
+		else if (cache[i] == '/')
+		{
+			c = fgetc(fp);
+			if ((char)c == '*')
+			{
+				while (1)
+				{
+					if ((char) c == '*')
+					{
+						c = fgetc(fp);
+						if ((char) c == '/')
+							break;
+						fseek(fp, -1, SEEK_CUR);
+					}
+				}
+				continue;
+			}
+			fseek(fp, -1, SEEK_CUR);
+		}
+		else if (isInvalid(cache[i]))
 		{
 			continue;
 		}
@@ -199,17 +265,28 @@ int procFile(char *fName, struct token tokens[])
 		else if (isdigit(cache[i]))
 		{
 			c = fgetc(fp);
-			while(isdigit((char)c))
+			if (isalpha((char)c))
 			{
-				cache[++i] = (char)c;
-				c = fgetc(fp);
+				while(isalpha((char)c))
+				{
+					cache[++i] = (char)c;
+					c = fgetc(fp);
+				}
+			}
+			else
+			{
+				while(isdigit((char)c))
+				{
+					cache[++i] = (char)c;
+					c = fgetc(fp);
+				}
 			}
 			fseek(fp, -1, SEEK_CUR);
 		}
 		else if (isalpha(cache[i]))
 		{
 			c = fgetc(fp);
-			while(isalpha((char)c))
+			while(isalpha((char)c) || isdigit((char)c))
 			{
 				cache[++i] = (char)c;
 				c = fgetc(fp);
@@ -219,6 +296,7 @@ int procFile(char *fName, struct token tokens[])
 		cache[i + 1] = '\0';
 		strcpy(tokens[len].lex, cache);
 		tokens[len].tokType = tokenize(cache);
+		tokens[len].err = checkErr(tokens[len].lex, tokens[len].tokType);
 		len++;
 		if (cache[0] == '.')
 			break;
