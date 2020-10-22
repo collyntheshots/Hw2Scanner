@@ -11,11 +11,11 @@
 
 /*
 ==============================================================================
-This program uses a struct to build the lex table, it is called lexTable and has the lexeme held in a char array lex, the token type held in an int tokType, and an error flag to indicate which error causes held in an int err
+This program uses a struct to build the lex table, it is called token and has the lexeme held in a char array lex, the token type held in an int tokType, and an error flag to indicate which error causes held in an int err
 ==============================================================================
 */
 
-struct lexTable{
+struct token{
 	char lex[100];
 	int tokType;
 	int err;
@@ -51,35 +51,35 @@ void printIn(char *fName)
 }
 
 // Prints the Lexeme Table with the proper spacing
-void printTable(struct lexTable token[], int len)
+void printTable(struct token tokens[], int len)
 {
 	int i;
 	printf("Lexeme Table:\n");
 	printf("lexeme\ttoken type\n");
-	for (i = 0; i <= len; i++)
-		printf("%s\t%d\n", token[i].lex, token[i].tokType);
+	for (i = 0; i < len; i++)
+		printf("%s\t%d\n", tokens[i].lex, tokens[i].tokType);
 }
 
 // Prints the Lexeme List with the proper spacing
 // ****************************************************************
 // needs to implement ascii convertion
-void printList(struct lexTable token[], int len)
+void printList(struct token tokens[], int len)
 {
 	int i;
 	char buff[100];
 	printf("Lexeme List:\n");
-	for (i = 0; i <= len; i++)
+	for (i = 0; i < len; i++)
 	{
-		printf("%d ", token[i].tokType);
-		if (token[i].tokType == numbersym)
+		printf("%d ", tokens[i].tokType);
+		if (tokens[i].tokType == numbersym)
 		{
 			//itoa(token[i].lex, buff, 10);
 			//printf("%s ", buff);
-			printf("%s ", token[i].lex);
+			printf("%s ", tokens[i].lex);
 		}
-		else if (token[i].tokType == identsym)
+		else if (tokens[i].tokType == identsym)
 		{
-			printf("%s ", token[i].lex);
+			printf("%s ", tokens[i].lex);
 		}
 	}
 	printf("\n");
@@ -105,7 +105,7 @@ int tokenize(char *input)
 		return oddsym;
 	else if (!strcmp(input, ":="))
 		return eqsym;
-	else if (!strcmp(input, "!="))
+	else if (!strcmp(input, "<>"))
 		return neqsym;
 	else if (!strcmp(input, "<"))
 		return lessym;
@@ -157,14 +157,20 @@ int tokenize(char *input)
 		return identsym;
 }
 
+int isInValid(char c)
+{
+	return 0;
+}
+
 // Processes the file passed through as fName
-int procFile(char *fName, struct lexTable token[])
+int procFile(char *fName, struct token tokens[])
 {
 	FILE *fp = fopen(fName, "r");
 
+	char cache[1000];
 	char buff[1000];
 	char buff2[1000];
-	int i = 0;
+	int c, len = 0, i = 0;
 	if (fp == NULL)
 	{
 		// Prints to std error when file is not opened properly
@@ -172,50 +178,67 @@ int procFile(char *fName, struct lexTable token[])
 		return -1;
 	}
 
-	// Runs until it finds the end of file
-	for (i = 0; !feof(fp); i++)
+
+	while((c = fgetc(fp)) != EOF)
 	{
-		fscanf(fp, "%s", buff);
-		int len = strlen(buff) - 1;
-
-		if (ispunct(buff[len]) && buff[len] != '=')
+		i = 0;
+		cache[i] = (char) c;
+		if (isspace(cache[i]))
 		{
-			buff2[0] = buff[len];
-			buff2[1] = '\0';
-			buff[len] = '\0';
-			strcpy(token[i].lex, buff);
-			token[i].tokType = tokenize(buff);
-			i++;
-			strcpy(token[i].lex, buff2);
-			token[i].tokType = tokenize(buff2);
+			continue;
 		}
-		else
+		else if (isInValid(cache[i]))
 		{
-			strcpy(token[i].lex, buff);
-			token[i].tokType = tokenize(buff);
+			continue;
 		}
-
-		if (buff2[0] == '.')
+		else if (cache[i] == ':')
 		{
-			fclose(fp);
-			return i;
+			if ((char)(c = fgetc(fp)) == '=')
+				cache[++i] = (char)c;
 		}
+		else if (isdigit(cache[i]))
+		{
+			c = fgetc(fp);
+			while(isdigit((char)c))
+			{
+				cache[++i] = (char)c;
+				c = fgetc(fp);
+			}
+			fseek(fp, -1, SEEK_CUR);
+		}
+		else if (isalpha(cache[i]))
+		{
+			c = fgetc(fp);
+			while(isalpha((char)c))
+			{
+				cache[++i] = (char)c;
+				c = fgetc(fp);
+			}
+			fseek(fp, -1, SEEK_CUR);
+		}
+		cache[i + 1] = '\0';
+		strcpy(tokens[len].lex, cache);
+		tokens[len].tokType = tokenize(cache);
+		len++;
+		if (cache[0] == '.')
+			break;
 	}
 	fclose(fp);
-	return i;
+	return len;
 }
 
 int main(int argc, char *argv[])
 {
 	char *fName = argv[1];
-	struct lexTable token[1000];
+	struct token tokens[1000];
 	int len;
 	printIn(fName);
 	printf("\n");
-	len = procFile(fName, token);
-	printTable(token, len);
+	len = procFile(fName, tokens);
 	printf("\n");
-	printList(token, len);
+	printTable(tokens, len);
+	printf("\n");
+	printList(tokens, len);
 
 	return 0;
 }
