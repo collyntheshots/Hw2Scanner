@@ -1,5 +1,5 @@
-//Tristin Young
 //Collyn Lindley
+//Tristin Young
 //COP 3402 Systems Software
 //Professor Montagne
 //Oct 19 2020
@@ -12,7 +12,10 @@
 
 /*
 ==============================================================================
-This program uses a struct to build the lex table, it is called token and has the lexeme held in a char array lex, the token type held in an int tokType, and an error flag to indicate which error causes held in an int err
+This program uses a struct to represent an individual token, it collects them
+in an array called tokens and has the lexeme held in a char array lex, the
+token type held in an int tokType, and an error flag to indicate which err
+causes held in an int err
 ==============================================================================
 */
 
@@ -22,8 +25,9 @@ struct token{
 	int err;
 };
 
+// Error
 typedef enum {
-	noletter = INT_MIN, numtoolong, nametoolong, invalidsymbols
+	noletter = INT_MIN, numtoolong, nametoolong, invalidsymbol
 } err;
 
 typedef enum {
@@ -56,15 +60,16 @@ void printIn(char *fName)
 	fclose(fp);
 }
 
+// Prints the error message that corresponds to the error code
 void printErr(int err)
 {
-	if (err = noletter)
+	if (err == noletter)
 		printf("Identifier does not start with a letter\n");
-	else if (err = numtoolong)
+	else if (err == numtoolong)
 		printf("Number is too long\n");
-	else if (err = nametoolong)
+	else if (err == nametoolong)
 		printf("Name is too long\n");
-	else if (err = invalidsymbols)
+	else if (err == invalidsymbol)
 		printf("Invalid symbol\n");
 }
 
@@ -85,8 +90,6 @@ void printTable(struct token tokens[], int len)
 }
 
 // Prints the Lexeme List with the proper spacing
-// ****************************************************************
-// needs to implement ascii convertion
 void printList(struct token tokens[], int len)
 {
 	int i;
@@ -101,8 +104,6 @@ void printList(struct token tokens[], int len)
 		printf("%d ", tokens[i].tokType);
 		if (tokens[i].tokType == numbersym)
 		{
-			//itoa(token[i].lex, buff, 10);
-			//printf("%s ", buff);
 			printf("%s ", tokens[i].lex);
 		}
 		else if (tokens[i].tokType == identsym)
@@ -113,6 +114,7 @@ void printList(struct token tokens[], int len)
 	printf("\n");
 }
 
+// returns true if the whole str is a number and false if it is not
 int isNumeric (const char * s)
 {
     if (s == NULL || *s == '\0' || isspace(*s))
@@ -122,9 +124,11 @@ int isNumeric (const char * s)
     return *p == '\0';
 }
 
+// turns the input from the file into a predeterminded token type
+// returns the int for the token type
 int tokenize(char *input)
 {
-	int i = 0;
+
 	if (input == NULL)
 		return nulsym;
 	else if (isNumeric(input))
@@ -139,7 +143,7 @@ int tokenize(char *input)
 		return slashsym;
 	else if (!strcmp(input, "odd"))
 		return oddsym;
-	else if (!strcmp(input, ":="))
+	else if (!strcmp(input, "="))
 		return eqsym;
 	else if (!strcmp(input, "<>"))
 		return neqsym;
@@ -161,7 +165,7 @@ int tokenize(char *input)
 		return semicolonsym;
 	else if (!strcmp(input, "."))
 		return periodsym;
-	else if (!strcmp(input, "becomes"))
+	else if (!strcmp(input, ":="))
 		return becomessym;
 	else if (!strcmp(input, "begin"))
 		return beginsym;
@@ -193,14 +197,17 @@ int tokenize(char *input)
 		return identsym;
 }
 
+// returns true if the char is invalid and false if valid
 int isInvalid(char c)
 {
-	if(c == '!' ||c == '@' ||c == '#' ||c == '`' ||c == '~' ||c == '$'|| c == '%'|| c == '^' || c == '&' ||c == '_' ||c == '[' ||c == '{' || c == ']' || c == '}' || c == '?' ||c == '\'' ||c == '|' || c == '/' || c == ':' )
+	if(c == '!' ||c == '@' ||c == '#' ||c == '`' ||c == '~' ||c == '$'|| c == '%'|| c == '^' || c == '&' ||c == '_' ||c == '[' ||c == '{' || c == ']' || c == '}' || c == '?' || c == '\'' ||c == '|' || c == ':' )
 		return 1;
 	else
 		return 0;
 }
 
+// Checks to see if the passed lexeme has an error, determined by the tType
+// Returns the corresponding error code or zero if no error is found
 int checkErr(char *lex, int tType)
 {
 	if (tType == identsym)
@@ -223,8 +230,9 @@ int procFile(char *fName, struct token tokens[])
 {
 	FILE *fp = fopen(fName, "r");
 
+	// cache acts as a buffer to read the chars into
 	char cache[1000];
-	int c, len = 0, i = 0, j = 0;
+	int c, len = 0, i = 0;
 	if (fp == NULL)
 	{
 		// Prints to std error when file is not opened properly
@@ -233,16 +241,18 @@ int procFile(char *fName, struct token tokens[])
 		return -1;
 	}
 
+	// reads to the end of the file
 	while((c = fgetc(fp)) != EOF)
 	{
+		// i is the index in the cache, thats why it resets to zero every loop
 		i = 0;
 		cache[i] = (char) c;
-		printf("in while loop %d\n", len);
-		fflush(stdout);
+		// skip all white space
 		if (isspace(cache[i]))
 		{
 			continue;
 		}
+		// comment handling
 		else if (cache[i] == '/')
 		{
 			c = fgetc(fp);
@@ -250,30 +260,37 @@ int procFile(char *fName, struct token tokens[])
 			{
 				while (1)
 				{
+					c = fgetc(fp);
 					if ((char) c == '*')
 					{
 						c = fgetc(fp);
 						if ((char) c == '/')
 							break;
-						fseek(fp, -1, SEEK_CUR);
 					}
 				}
 				continue;
 			}
+			// this is used to move the file pointer back a specific amount of
+			// bytes, in this case its -1 bytes
 			fseek(fp, -1, SEEK_CUR);
 		}
+		// becomes handling
 		else if (cache[i] == ':')
 		{
 			if ((char)(c = fgetc(fp)) == '=')
 				cache[++i] = (char)c;
 		}
+		// sets error code to invalid sym if the sym is invalid
 		else if (isInvalid(cache[i]))
 		{
-			continue;
+			tokens[len].err = invalidsymbol;
 		}
+		// number handling
 		else if (isdigit(cache[i]))
 		{
 			c = fgetc(fp);
+			// this is a special case where the token has a leading num but is not
+			// a number but instead an invalid identifier
 			if (isalpha((char)c))
 			{
 				while(isalpha((char)c))
@@ -282,6 +299,7 @@ int procFile(char *fName, struct token tokens[])
 					c = fgetc(fp);
 				}
 			}
+			// the only valid num is one that is all nums
 			else
 			{
 				while(isdigit((char)c))
@@ -292,9 +310,11 @@ int procFile(char *fName, struct token tokens[])
 			}
 			fseek(fp, -1, SEEK_CUR);
 		}
+		// indentifier handling
 		else if (isalpha(cache[i]))
 		{
 			c = fgetc(fp);
+			// a indentifier can be a combo of nums and letters
 			while(isalpha((char)c) || isdigit((char)c))
 			{
 				cache[++i] = (char)c;
@@ -303,12 +323,14 @@ int procFile(char *fName, struct token tokens[])
 			fseek(fp, -1, SEEK_CUR);
 		}
 		cache[i + 1] = '\0';
-		//printf("%s\n", cache);
 		strcpy(tokens[len].lex, cache);
 		tokens[len].tokType = tokenize(cache);
-		tokens[len].err = checkErr(tokens[len].lex, tokens[len].tokType);
+		// if the err is already set to invalidsymbol we dont want to change that
+		if (tokens[len].err != invalidsymbol)
+			tokens[len].err = checkErr(tokens[len].lex, tokens[len].tokType);
 		len++;
-		if (cache[0] == '.')
+		// stop reading the program if "end." is found
+		if (cache[0] == '.' && tokens[len-2].tokType == endsym)
 			break;
 	}
 	fclose(fp);
@@ -322,17 +344,10 @@ int main(int argc, char *argv[])
 	int len;
 	printIn(fName);
 	printf("\n");
-	printf("processing file\n");
-	fflush(stdout);
 	len = procFile(fName, tokens);
 	printf("\n");
-	printf("print Table\n");
-	fflush(stdout);
 	printTable(tokens, len);
 	printf("\n");
-	printf("print List\n");
-	fflush(stdout);
 	printList(tokens, len);
-
 	return 0;
 }
