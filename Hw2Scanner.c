@@ -94,6 +94,10 @@ void printList(struct token tokens[], int len)
 	printf("Lexeme List:\n");
 	for (i = 0; i < len; i++)
 	{
+		if (tokens[i].err)
+		{
+			continue;
+		}
 		printf("%d ", tokens[i].tokType);
 		if (tokens[i].tokType == numbersym)
 		{
@@ -191,7 +195,10 @@ int tokenize(char *input)
 
 int isInvalid(char c)
 {
-	return 0;
+	if(c == '!' ||c == '@' ||c == '#' ||c == '`' ||c == '~' ||c == '$'|| c == '%'|| c == '^' || c == '&' ||c == '_' ||c == '[' ||c == '{' || c == ']' || c == '}' || c == '?' ||c == '\'' ||c == '|' || c == '/' || c == ':' )
+		return 1;
+	else
+		return 0;
 }
 
 int checkErr(char *lex, int tType)
@@ -217,7 +224,7 @@ int procFile(char *fName, struct token tokens[])
 	FILE *fp = fopen(fName, "r");
 
 	char cache[1000];
-	int c, len = 0, i = 0;
+	int c, len = 0, i = 0, j = 0;
 	if (fp == NULL)
 	{
 		// Prints to std error when file is not opened properly
@@ -230,6 +237,8 @@ int procFile(char *fName, struct token tokens[])
 	{
 		i = 0;
 		cache[i] = (char) c;
+		printf("in while loop %d\n", len);
+		fflush(stdout);
 		if (isspace(cache[i]))
 		{
 			continue;
@@ -253,14 +262,14 @@ int procFile(char *fName, struct token tokens[])
 			}
 			fseek(fp, -1, SEEK_CUR);
 		}
-		else if (isInvalid(cache[i]))
-		{
-			continue;
-		}
 		else if (cache[i] == ':')
 		{
 			if ((char)(c = fgetc(fp)) == '=')
 				cache[++i] = (char)c;
+		}
+		else if (isInvalid(cache[i]))
+		{
+			continue;
 		}
 		else if (isdigit(cache[i]))
 		{
@@ -294,6 +303,7 @@ int procFile(char *fName, struct token tokens[])
 			fseek(fp, -1, SEEK_CUR);
 		}
 		cache[i + 1] = '\0';
+		//printf("%s\n", cache);
 		strcpy(tokens[len].lex, cache);
 		tokens[len].tokType = tokenize(cache);
 		tokens[len].err = checkErr(tokens[len].lex, tokens[len].tokType);
@@ -312,10 +322,16 @@ int main(int argc, char *argv[])
 	int len;
 	printIn(fName);
 	printf("\n");
+	printf("processing file\n");
+	fflush(stdout);
 	len = procFile(fName, tokens);
 	printf("\n");
+	printf("print Table\n");
+	fflush(stdout);
 	printTable(tokens, len);
 	printf("\n");
+	printf("print List\n");
+	fflush(stdout);
 	printList(tokens, len);
 
 	return 0;
